@@ -14,13 +14,15 @@ import {
   AggregatedBilling,
 } from './billing';
 import { clearCache, getCacheStats, getCacheDir } from './cache';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { version } = require('../package.json');
 
 const program = new Command();
 
 program
   .name('gh-forecast')
   .description('Forecast GitHub Actions minutes usage for GHES organizations')
-  .version('1.0.0')
+  .version(version)
   .requiredOption('-o, --org <org>', 'GitHub organization name')
   .option('-d, --days <days>', 'Number of days to analyze (ignored if --start is used)', '30')
   .option('--start <date>', 'Start date (YYYY-MM-DD)')

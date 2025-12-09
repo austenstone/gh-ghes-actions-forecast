@@ -1,6 +1,6 @@
 {
   "name": "gh-forecast",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Forecast your GHES Actions Minutes Usage - A GitHub CLI extension",
   "main": "dist/index.js",
   "bin": {
