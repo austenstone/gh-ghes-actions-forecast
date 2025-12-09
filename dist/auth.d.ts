@@ -13,4 +13,3 @@ export interface AuthConfig {
  * @param host - Optional GHES hostname (e.g., "github.mycompany.com")
  */
 export declare function getAuth(host?: string): AuthConfig;
-//# sourceMappingURL=auth.d.ts.map

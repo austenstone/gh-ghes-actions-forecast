@@ -90,4 +90,3 @@ export declare function projectCosts(billing: AggregatedBilling, daysOfData: num
     weekly: number;
     monthly: number;
 };
-//# sourceMappingURL=billing.d.ts.map

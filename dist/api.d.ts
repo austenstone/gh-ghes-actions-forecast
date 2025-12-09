@@ -58,4 +58,3 @@ export declare function fetchAllJobs(octokit: Octokit, runs: WorkflowRun[], conc
  * Fetch workflow runs for all repositories in an organization.
  */
 export declare function fetchOrgWorkflowRuns(octokit: Octokit, repos: Repository[], since: Date, until: Date, concurrency?: number, onProgress?: (completed: number, total: number, runCount: number) => void, options?: FetchOptions): Promise<WorkflowRun[]>;
-//# sourceMappingURL=api.d.ts.map

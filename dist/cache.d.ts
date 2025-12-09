@@ -25,4 +25,3 @@ export declare function getCacheStats(): {
  * Get cache directory path.
  */
 export declare function getCacheDir(): string;
-//# sourceMappingURL=cache.d.ts.map
