@@ -118,12 +118,16 @@ async function run(options: CLIOptions): Promise<void> {
       console.log('');
     }
     
-    // Authenticate
+    // Authenticate with rate limit handling
     if (showProgress) {
       process.stdout.write(chalk.gray('  Authenticating... '));
     }
     const auth = getAuth(options.host);
-    const octokit = createOctokit(auth);
+    const octokit = createOctokit(auth, (retryAfter, requestOptions) => {
+      if (showProgress) {
+        console.log(chalk.yellow(`\n  ⚠️  Rate limited. Retrying in ${retryAfter}s...`));
+      }
+    });
     if (showProgress) {
       console.log(chalk.green('✓'));
     }
@@ -140,15 +144,18 @@ async function run(options: CLIOptions): Promise<void> {
     // Step 1: Fetch repositories
     let repoBar: cliProgress.SingleBar | null = null;
     if (multibar) {
-      repoBar = multibar.create(100, 0, { task: 'Fetching repos    ' });
+      repoBar = multibar.create(1, 0, { task: 'Fetching repos    ' });
     }
     
     const fetchOptions = { useCache, cacheTtlMs };
     const repos = await listOrgRepos(octokit, options.org, (count) => {
-      repoBar?.update(Math.min(count, 100));
+      // Update total dynamically as we discover repos
+      repoBar?.setTotal(count);
+      repoBar?.update(count);
     }, fetchOptions);
     
-    repoBar?.update(100);
+    repoBar?.setTotal(repos.length);
+    repoBar?.update(repos.length);
     repoBar?.stop();
     
     if (repos.length === 0) {
@@ -218,8 +225,12 @@ async function run(options: CLIOptions): Promise<void> {
   } catch (error) {
     if (error instanceof Error) {
       console.error(chalk.red(`\nError: ${error.message}`));
+      if (error.stack) {
+        console.error(chalk.gray(error.stack));
+      }
     } else {
       console.error(chalk.red('\nAn unexpected error occurred'));
+      console.error(error);
     }
     process.exit(1);
   }

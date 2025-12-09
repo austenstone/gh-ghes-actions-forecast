@@ -1,7 +1,17 @@
-import { Octokit } from '@octokit/rest';
+import { Octokit } from '@octokit/core';
+import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
+import { paginateRest } from '@octokit/plugin-paginate-rest';
+import { throttling } from '@octokit/plugin-throttling';
+import { retry } from '@octokit/plugin-retry';
 import pLimit from 'p-limit';
 import { AuthConfig } from './auth';
 import { getCache, setCache } from './cache';
+
+// Create Octokit with all necessary plugins
+const ThrottledOctokit = Octokit.plugin(restEndpointMethods, paginateRest, throttling, retry);
+
+// Type for our custom Octokit instance
+type ThrottledOctokitInstance = InstanceType<typeof ThrottledOctokit>;
 
 export interface Repository {
   name: string;
@@ -47,10 +57,31 @@ export interface FetchOptions {
 
 const DEFAULT_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
 
-export function createOctokit(auth: AuthConfig): Octokit {
-  return new Octokit({
+export function createOctokit(auth: AuthConfig, onRateLimit?: (retryAfter: number, options: object) => void): ThrottledOctokitInstance {
+  return new ThrottledOctokit({
     auth: auth.token,
     baseUrl: auth.baseUrl,
+    throttle: {
+      onRateLimit: (retryAfter: number, options: { method: string; url: string }, _octokit: unknown, retryCount: number) => {
+        onRateLimit?.(retryAfter, options);
+        // Retry twice after hitting rate limit
+        if (retryCount < 2) {
+          return true;
+        }
+        return false;
+      },
+      onSecondaryRateLimit: (retryAfter: number, options: { method: string; url: string }, _octokit: unknown, retryCount: number) => {
+        onRateLimit?.(retryAfter, options);
+        // Retry once on secondary rate limit (abuse detection)
+        if (retryCount < 1) {
+          return true;
+        }
+        return false;
+      },
+    },
+    retry: {
+      doNotRetry: ['429'],
+    },
   });
 }
 
@@ -58,7 +89,7 @@ export function createOctokit(auth: AuthConfig): Octokit {
  * List all repositories in an organization with pagination.
  */
 export async function listOrgRepos(
-  octokit: Octokit,
+  octokit: ThrottledOctokitInstance,
   org: string,
   onProgress?: (count: number) => void,
   options: FetchOptions = {}
@@ -103,7 +134,7 @@ export async function listOrgRepos(
  * List workflow runs for a repository within a date range.
  */
 export async function listWorkflowRuns(
-  octokit: Octokit,
+  octokit: ThrottledOctokitInstance,
   owner: string,
   repo: string,
   since: Date,
@@ -146,11 +177,9 @@ export async function listWorkflowRuns(
       onProgress?.(runs.length);
     }
   } catch (error: unknown) {
-    // Some repos might not have Actions enabled
-    if (error instanceof Error && error.message.includes('404')) {
-      return [];
-    }
-    throw error;
+    // Skip repos that are inaccessible, don't have Actions, or throw any API error
+    // Common cases: 404 (not found), 403 (forbidden), 409 (conflict/empty repo)
+    return [];
   }
   
   return runs;
@@ -160,7 +189,7 @@ export async function listWorkflowRuns(
  * List jobs for a specific workflow run.
  */
 export async function listRunJobs(
-  octokit: Octokit,
+  octokit: ThrottledOctokitInstance,
   owner: string,
   repo: string,
   runId: number
@@ -195,11 +224,8 @@ export async function listRunJobs(
       }
     }
   } catch (error: unknown) {
-    // Handle 404 gracefully
-    if (error instanceof Error && error.message.includes('404')) {
-      return [];
-    }
-    throw error;
+    // Skip jobs that are inaccessible or throw any API error
+    return [];
   }
   
   return jobs;
@@ -209,7 +235,7 @@ export async function listRunJobs(
  * Fetch all jobs for multiple workflow runs with concurrency control.
  */
 export async function fetchAllJobs(
-  octokit: Octokit,
+  octokit: ThrottledOctokitInstance,
   runs: WorkflowRun[],
   concurrency: number = 5,
   onProgress?: (completed: number, total: number) => void,
@@ -266,7 +292,7 @@ export async function fetchAllJobs(
  * Fetch workflow runs for all repositories in an organization.
  */
 export async function fetchOrgWorkflowRuns(
-  octokit: Octokit,
+  octokit: ThrottledOctokitInstance,
   repos: Repository[],
   since: Date,
   until: Date,

@@ -11,13 +11,14 @@ GHES self-hosted runners don't report "billable minutes" the same way GitHub.com
 ## Quick Start
 
 ```bash
+# Set your token
+export GH_TOKEN="ghp_xxxxxxxxxxxx"
+
 # 🚀 Run instantly with npx (no install required!)
 npx gh-forecast --org my-org --host github.mycompany.com
-
-# Set your token first if not using gh CLI
-export GH_TOKEN="ghp_xxx"
-npx gh-forecast --org my-org
 ```
+
+That's it! The tool will analyze the last 30 days of workflow runs and show you cost estimates.
 
 ## Installation
 
